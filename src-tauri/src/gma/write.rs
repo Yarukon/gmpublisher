@@ -36,13 +36,20 @@ impl GMAFile {
 		let src_path = src_path.as_ref();
 
 		let metadata = self.metadata.as_ref().expect("Expected metadata to be set");
+		let ignore = metadata.ignore().map(|ignore| {
+			ignore.into_iter().map(|ignore| {
+				let mut ignore = ignore.to_owned();
+				ignore.push('\0');
+				ignore
+			}).collect::<Vec<_>>().into_boxed_slice()
+		});
 
 		let (title, addon_json) = match metadata {
 			GMAMetadata::Legacy { title, .. } => (title.as_str(), None),
 			GMAMetadata::Standard { title, .. } => (title.as_str(), Some(metadata)),
 		};
 
-		f.write(GMA_HEADER)?;
+		f.write_all(GMA_HEADER)?;
 
 		f.write_u8(3)?; // gma version
 
@@ -82,16 +89,19 @@ impl GMAFile {
 			let root_path_strip_len = src_path.to_string_lossy().len();
 
 			let mut total = 0.;
-			for (path, relative_path) in WalkDir::new(src_path).into_iter().filter_map(|entry| {
+			for (path, relative_path) in WalkDir::new(src_path).follow_links(true).into_iter().filter_map(|entry| {
 				entry.ok().and_then(|entry| {
 					if entry.file_type().is_file() {
 						let path = entry.into_path();
 
 						let relative_path = path.to_slash_lossy()[root_path_strip_len..].trim_matches('/').to_lowercase();
 
-						println!("relative_path {}", relative_path);
-
 						if whitelist::check(&relative_path) {
+							if let Some(ref ignore) = ignore {
+								if whitelist::is_ignored(&relative_path, ignore) {
+									return None;
+								}
+							}
 							return Some((path, relative_path));
 						} else {
 							transaction.data(("ERR_WHITELIST", relative_path));
@@ -141,7 +151,7 @@ impl GMAFile {
 			i += 1;
 
 			f.write_u32::<LittleEndian>(i as u32)?;
-			f.write(&path)?;
+			f.write_all(&path)?;
 			f.write_u8(0)?;
 			f.write_i64::<LittleEndian>(contents.len() as i64)?;
 			f.write_u32::<LittleEndian>(crc32)?;
@@ -155,7 +165,7 @@ impl GMAFile {
 		f.write_u32::<LittleEndian>(0)?;
 
 		for contents in entries_buf.into_iter() {
-			f.write(&contents)?;
+			f.write_all(&contents)?;
 		}
 
 		let written = f.buffer();

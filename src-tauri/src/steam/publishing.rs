@@ -254,7 +254,7 @@ impl Steam {
 					.title(&title)
 					.preview_path(&Into::<PathBuf>::into(preview))
 					.tags(tags)
-					.description("Uploaded with [url=https://gmpublisher.download]gmpublisher[/url]")
+					.description("Uploaded with [b]gmpublisher[/b]")
 					.submit(None, move |result| {
 						*result_ref.lock() = Some(result);
 					})
@@ -435,6 +435,7 @@ pub fn verify_whitelist(path: PathBuf) -> Result<(Vec<GMAEntry>, u64), PublishEr
 	let mut dedup: HashSet<String> = HashSet::new();
 
 	for (path, relative_path) in WalkDir::new(&path)
+		.follow_links(true)
 		.contents_first(true)
 		.into_iter()
 		.filter_map(|entry| {

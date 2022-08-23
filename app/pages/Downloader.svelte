@@ -129,8 +129,8 @@
 		}
 	}
 
-	const RE_DELIMETERS = /(?:, *|\n+|\t+)/g;
-	const RE_WORKSHOP_ID = /^(\d+)|(?:https?:\/\/(?:www\.)?steamcommunity\.com\/sharedfiles\/filedetails\/?.*(?:\?|&)id=(\d+)(?=$|&))/gmi;
+	const RE_DELIMETERS = /(?:, *|\n+|\t+| +)/g;
+	const RE_WORKSHOP_ID = /^(\d+)|(?:https?:\/\/(?:www\.)?steamcommunity\.com\/(?:sharedfiles\/filedetails|workshop(?:\/filedetails)?)(?:\/?.*(?:\?|&)id=(\d+)(?=$|&)|\/(\d+)$))/gmi;
 	function parseInput(e) {
 		let input = this.value;
 		if (e.clipboardData) {
@@ -145,28 +145,23 @@
 		var ids = {};
 		var result;
 		while ((result = RE_WORKSHOP_ID.exec(input)) !== null) {
-			const id = result[1] ?? result[2];
+			const id = result[1] ?? result[2] ?? result[3];
 			if (!id || id in ids || !parseInt(id)) continue;
 			ids[id] = true;
 		}
 
 		var ids = Object.keys(ids);
-		if (ids.length !== input.split('\n').length) {
-			this.classList.add('error');
-			playSound('error');
-		} else {
-			if (e.clipboardData) {
-				e.preventDefault();
-				e.stopPropagation();
-			}
-
-			this.classList.remove('error');
-			this.value = '';
-
-			invoke('workshop_download', { ids: ids.map(id => parseInt(id)) });
-
-			playSound('success');
+		if (e.clipboardData) {
+			e.preventDefault();
+			e.stopPropagation();
 		}
+
+		this.classList.remove('error');
+		this.value = '';
+
+		invoke('workshop_download', { ids: ids.map(id => parseInt(id)) });
+
+		playSound('success');
 	}
 	function checkEmptyInput() {
 		if (this.value.length === 0)
@@ -336,7 +331,7 @@
 									<div>
 										<div><img src="/img/dog_sleep.gif"/></div>
 										<div>{$_('waiting')}</div>
-										<div class="tip">{$_('extraction_tip')}</div>
+										<!--<div class="tip">{$_('extraction_tip')}</div>-->
 										<div class="btn" on:click={openDestination}>{$_('set_destination')}</div>
 									</div>
 								</td>
